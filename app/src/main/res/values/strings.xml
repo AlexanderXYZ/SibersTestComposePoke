@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">SibersTestComposePoke</string>
+    <string name="attack_title">attack</string>
+    <string name="defense_title">defense</string>
+    <string name="hp_title">hp</string>
+
+    <string name="height_title">Height</string>
+    <string name="weight_title">Weight</string>
+</resources>
