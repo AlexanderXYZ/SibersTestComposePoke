@@ -53,7 +53,7 @@ fun MainScreen(
         scaffoldState = scaffoldState,
         floatingActionButton = {
             FloatingActionButton(onClick = {
-                viewModel.obtainEvent(MainEvent.RefreshPokemonsClicked)
+                viewModel.obtainEvent(MainEvent.RefreshPokemonsClicked(isOnline = isOnline))
             }) {
                 Icon(imageVector = Icons.Default.Refresh, contentDescription = "refresh icon")
             }

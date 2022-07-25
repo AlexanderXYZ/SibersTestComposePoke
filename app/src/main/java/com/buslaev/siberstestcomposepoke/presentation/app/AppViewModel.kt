@@ -41,7 +41,7 @@ class AppViewModel @Inject constructor(
     override fun obtainEvent(event: MainEvent) {
         when (event) {
             is MainEvent.LoadPokemons -> loadPokemons(isOnline = event.isOnline)
-            is MainEvent.RefreshPokemonsClicked -> refreshPokemons()
+            is MainEvent.RefreshPokemonsClicked -> refreshPokemons(event.isOnline)
             is MainEvent.PokemonClicked -> pokemonClick(pokemon = event.pokemon)
             is MainEvent.CheckBoxClicked -> checkStats(
                 selectedStat = event.selectedStat,
@@ -68,33 +68,38 @@ class AppViewModel @Inject constructor(
         }
     }
 
-    private fun refreshPokemons() = viewModelScope.launch(Dispatchers.IO) {
-        val data = repository.getPokemons(offset = 0, limit = POKEMONS_OFFSET * currentPage)
-        when (data) {
-            is Resource.Loading -> {
-                uiState = uiState.copy(
-                    isLoading = true
-                )
-            }
-            is Resource.Error -> {
-                uiState = uiState.copy(
-                    error = data.message ?: ""
-                )
-            }
-            is Resource.Success -> {
-                val newList = data.data ?: emptyList()
-                oldList = newList
-                uiState = uiState.copy(
-                    isLoading = false,
-                    attackChecked = false,
-                    defenseChecked = false,
-                    hpChecked = false,
-                    listOfSelectedStats = emptyList(),
-                    pokemonList = newList
-                )
+    private fun refreshPokemons(isOnline: Boolean) {
+        if (!isOnline) {
+            loadPokemonsFromCache()
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            val data = repository.getPokemons(offset = 0, limit = POKEMONS_OFFSET * currentPage)
+            when (data) {
+                is Resource.Loading -> {
+                    uiState = uiState.copy(
+                        isLoading = true
+                    )
+                }
+                is Resource.Error -> {
+                    uiState = uiState.copy(
+                        error = data.message ?: ""
+                    )
+                }
+                is Resource.Success -> {
+                    val newList = data.data ?: emptyList()
+                    oldList = newList
+                    uiState = uiState.copy(
+                        isLoading = false,
+                        attackChecked = false,
+                        defenseChecked = false,
+                        hpChecked = false,
+                        listOfSelectedStats = emptyList(),
+                        pokemonList = newList
+                    )
+                }
             }
         }
-
     }
 
     private fun loadPokemonsFromServer() = viewModelScope.launch(Dispatchers.IO) {
@@ -135,8 +140,13 @@ class AppViewModel @Inject constructor(
 
     private fun loadPokemonsFromCache() = viewModelScope.launch(Dispatchers.IO) {
         val list = repository.getPokemonsFromDatabase()
+        oldList = list
         uiState = uiState.copy(
             isLoading = false,
+            attackChecked = false,
+            defenseChecked = false,
+            hpChecked = false,
+            listOfSelectedStats = emptyList(),
             pokemonList = list
         )
     }
