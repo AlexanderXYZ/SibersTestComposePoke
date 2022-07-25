@@ -18,18 +18,19 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.buslaev.siberstestcomposepoke.R
 import com.buslaev.siberstestcomposepoke.data.models.Pokemon
+import java.text.DecimalFormat
 
 @SuppressLint("UnusedMaterialScaffoldPaddingParameter")
 @Composable
 fun DetailScreen(
     navController: NavController,
-    pokemon: Pokemon?
+    pokemon: Pokemon
 ) {
     Scaffold(
         topBar = {
             TopAppBar(backgroundColor = Color.Transparent, elevation = 0.dp) {
                 IconButton(onClick = { navController.popBackStack() }) {
-                    Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "BackButton")
+                    Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "back button")
                 }
             }
         }
@@ -40,43 +41,45 @@ fun DetailScreen(
                 .padding(16.dp)
                 .verticalScroll(ScrollState(0)),
         ) {
-            if (pokemon != null) {
-                AsyncImage(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(350.dp),
-                    model = pokemon.spirites.image,
-                    contentDescription = "pokemon"
-                )
-                Spacer(modifier = Modifier.height(16.dp))
+            AsyncImage(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(350.dp),
+                model = pokemon.spirites.image,
+                contentDescription = "pokemon image"
+            )
+            Spacer(modifier = Modifier.height(16.dp))
 
-                Text(text = pokemon.name, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Text(text = pokemon.name, fontSize = 24.sp, fontWeight = FontWeight.Bold)
 
-                Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-                Text(text = stringResource(id = R.string.height_title) + " " + pokemon.height.toString())
 
-                Text(text = stringResource(id = R.string.weight_title) + " " + pokemon.weight.toString())
+            Text(
+                text = stringResource(id = R.string.height_title) + " ${
+                    DecimalFormat("#0.0").format(
+                        pokemon.height * 0.3048
+                    )
+                }m"
+            )
 
-                Spacer(modifier = Modifier.height(16.dp))
+            Text(text = stringResource(id = R.string.weight_title) + " ${pokemon.weight}kg")
 
-                if (pokemon.types.isNotEmpty()) {
-                    pokemon.types.forEach { type ->
-                        Text(text = type.desctiption.name)
-                    }
+            Spacer(modifier = Modifier.height(16.dp))
+
+            if (pokemon.types.isNotEmpty()) {
+                pokemon.types.forEach { type ->
+                    Text(text = type.desctiption.name)
                 }
+            }
 
-                Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-                if (pokemon.stats.isNotEmpty()) {
-                    pokemon.stats.forEach { stat ->
-                        Text(text = "${stat.statNamed.name} = ${stat.value}")
-                    }
+            if (pokemon.stats.isNotEmpty()) {
+                pokemon.stats.forEach { stat ->
+                    Text(text = "${stat.statNamed.name} = ${stat.value}")
                 }
-            } else {
-
             }
         }
     }
-
 }

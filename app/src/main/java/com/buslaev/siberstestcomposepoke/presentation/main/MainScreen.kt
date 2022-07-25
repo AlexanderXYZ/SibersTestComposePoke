@@ -22,6 +22,7 @@ import com.buslaev.siberstestcomposepoke.data.models.Pokemon
 import com.buslaev.siberstestcomposepoke.presentation.app.AppViewModel
 import com.buslaev.siberstestcomposepoke.presentation.app.Screens
 import com.buslaev.siberstestcomposepoke.presentation.app.Stats
+import kotlinx.coroutines.launch
 
 @SuppressLint("UnusedMaterialScaffoldPaddingParameter")
 @Composable
@@ -30,22 +31,37 @@ fun MainScreen(
     viewModel: AppViewModel,
     isOnline: Boolean
 ) {
-    LaunchedEffect(key1 = Unit) {
-        viewModel.loadPokemons(isOnline)
-    }
     val state = viewModel.uiState
+    val scaffoldState = rememberScaffoldState()
+
+    if (state.isFirstLaunch){
+        LaunchedEffect(key1 = Unit) {
+            viewModel.obtainEvent(MainEvent.LoadPokemons(isOnline))
+        }
+    }
+
+    if (state.error.isNotEmpty()) {
+        LaunchedEffect(key1 = scaffoldState.snackbarHostState) {
+            scaffoldState.snackbarHostState.showSnackbar(
+                message = state.error,
+                duration = SnackbarDuration.Long
+            )
+        }
+    }
 
     Scaffold(
+        scaffoldState = scaffoldState,
         floatingActionButton = {
             FloatingActionButton(onClick = {
-                viewModel.refreshPokemons()
+                viewModel.obtainEvent(MainEvent.RefreshPokemonsClicked)
             }) {
-                Icon(imageVector = Icons.Default.Refresh, contentDescription = "Refresh")
+                Icon(imageVector = Icons.Default.Refresh, contentDescription = "refresh icon")
             }
         }
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             val lazyState = rememberLazyListState()
+            val scope = rememberCoroutineScope()
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -58,20 +74,47 @@ fun MainScreen(
                     SimpleCheckbox(
                         title = stringResource(id = R.string.attack_title),
                         checked = state.attackChecked
-                    ) {
-                        viewModel.checkStats(selectedStat = Stats.Attack, it)
+                    ) { isChecked ->
+                        viewModel.obtainEvent(
+                            MainEvent.CheckBoxClicked(
+                                selectedStat = Stats.Attack,
+                                isChecked = isChecked
+                            )
+                        )
+                        if (lazyState.firstVisibleItemIndex != 0)
+                            scope.launch {
+                                lazyState.scrollToItem(0)
+                            }
                     }
                     SimpleCheckbox(
                         title = stringResource(id = R.string.defense_title),
                         checked = state.defenseChecked
-                    ) {
-                        viewModel.checkStats(selectedStat = Stats.Defense, it)
+                    ) { isChecked ->
+                        viewModel.obtainEvent(
+                            MainEvent.CheckBoxClicked(
+                                selectedStat = Stats.Defense,
+                                isChecked = isChecked
+                            )
+                        )
+                        if (lazyState.firstVisibleItemIndex != 0)
+                            scope.launch {
+                                lazyState.scrollToItem(0)
+                            }
                     }
                     SimpleCheckbox(
                         title = stringResource(id = R.string.hp_title),
                         checked = state.hpChecked
-                    ) {
-                        viewModel.checkStats(selectedStat = Stats.Hp, it)
+                    ) { isChecked ->
+                        viewModel.obtainEvent(
+                            MainEvent.CheckBoxClicked(
+                                selectedStat = Stats.Hp,
+                                isChecked = isChecked
+                            )
+                        )
+                        if (lazyState.firstVisibleItemIndex != 0)
+                            scope.launch {
+                                lazyState.scrollToItem(0)
+                            }
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
@@ -82,31 +125,50 @@ fun MainScreen(
                     items(state.pokemonList.size) { i ->
                         val item = state.pokemonList[i]
                         if (i >= state.pokemonList.size - 1 && !state.isLoading && isOnline) {
-                            println("LOAD MORE")
-                            viewModel.loadPokemons(isOnline)
+                            viewModel.obtainEvent(MainEvent.LoadPokemons(isOnline))
                         }
 
-                        val number = if (state.listOfSelectedStats.isNotEmpty() && i < 3) {
-                            val lastChecked = state.listOfSelectedStats[0]
+                        // Не лучшее место для вычислений
+                        val currentStat = if (state.listOfSelectedStats.isNotEmpty() && i < 3) {
+                            val stats = state.listOfSelectedStats
+
+                            var maxValue = 0
+                            var stateName = stats[0].name
+                            stats.forEach { stat ->
+                                val value =
+                                    item.stats.find { it.statNamed.name == stat.name }?.value
+                                value?.let {
+                                    if (value > maxValue) {
+                                        maxValue = value
+                                        stateName = stat.name
+                                    }
+                                }
+                            }
                             when (i) {
-                                0 -> Pair(lastChecked, 24)
-                                1 -> Pair(lastChecked, 16)
-                                2 -> Pair(lastChecked, 12)
+                                0 -> Triple(stateName, maxValue, 20)
+                                1 -> Triple(stateName, maxValue, 16)
+                                2 -> Triple(stateName, maxValue, 12)
                                 else -> null
                             }
                         } else null
-                        println(number)
 
-                        PokemonItem(pokemon = item, sortedPair = number) { clickedPokemon ->
-                            viewModel.pokemonClick(clickedPokemon)
+                        PokemonItem(pokemon = item, stat = currentStat) { clickedPokemon ->
+                            viewModel.obtainEvent(MainEvent.PokemonClicked(pokemon = clickedPokemon))
                             navController.navigate(Screens.DetailScreen.route)
                         }
                     }
+                    item {
+                        if (state.isLoading) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp)
+                            ) {
+                                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                            }
+                        }
+                    }
                 }
-            }
-
-            if (state.isLoading) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             }
         }
     }
@@ -115,7 +177,7 @@ fun MainScreen(
 @Composable
 fun PokemonItem(
     pokemon: Pokemon,
-    sortedPair: Pair<Stats, Int>? = null,
+    stat: Triple<String, Int, Int>? = null,
     onClick: (Pokemon) -> Unit
 ) {
     Column(
@@ -136,16 +198,16 @@ fun PokemonItem(
                     .size(100.dp, 100.dp)
                     .align(Alignment.Center),
                 model = pokemon.spirites.image,
-                contentDescription = "image",
+                contentDescription = "pokemon image",
                 onError = {
                     Icons.Default.Refresh
                 }
             )
-            sortedPair?.let { pair ->
+            stat?.let { stat ->
                 Text(
-                    text = "${pair.first.name} = ${pokemon.stats.find { it.statNamed.name == pair.first.name }?.value}",
+                    text = "${stat.first} = ${stat.second}",
                     modifier = Modifier.align(Alignment.CenterEnd),
-                    fontSize = pair.second.sp
+                    fontSize = stat.third.sp
                 )
             }
         }

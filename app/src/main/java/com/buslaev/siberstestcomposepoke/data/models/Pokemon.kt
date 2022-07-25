@@ -1,11 +1,8 @@
 package com.buslaev.siberstestcomposepoke.data.models
 
-import android.graphics.Bitmap
-import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.squareup.moshi.Json
-import javax.annotation.Nullable
 
 @Entity(tableName = "pokemon_table")
 data class Pokemon(

@@ -11,7 +11,7 @@ import com.buslaev.siberstestcomposepoke.presentation.main.MainScreen
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 
 @Composable
-fun PokeApplication(
+fun ApplicationScreen(
     appState: AppState = rememberAppState()
 ) {
     val systemUiController = rememberSystemUiController()
@@ -34,10 +34,12 @@ fun PokeApplication(
             )
         }
         composable(Screens.DetailScreen.route) {
-            DetailScreen(
-                navController = appState.navController,
-                pokemon = viewModel.uiState.selectedPokemon
-            )
+            viewModel.uiState.selectedPokemon?.let {
+                DetailScreen(
+                    navController = appState.navController,
+                    pokemon = it
+                )
+            }
         }
     }
 }
