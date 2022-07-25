@@ -9,40 +9,59 @@ import javax.inject.Inject
 
 interface PokeRepository {
 
+    /**
+     * Get pokemons by paginating from remote server
+     * @return list of pokemonds wrapped in class resource
+     */
     suspend fun getPokemons(offset: Int, limit: Int): Resource<List<Pokemon>>
-    suspend fun getPokemonsFromDao(): List<Pokemon>
-    suspend fun insertAllPokemons(list: List<Pokemon>)
-    suspend fun deleteAllPokemons()
+
+    /**
+     * Return list of pokemons from cache (Database)
+     * @return list of pokemons
+     */
+    suspend fun getPokemonsFromDatabase(): List<Pokemon>
+
+    /**
+     * Insert list of pokemons to cache (Database)
+     */
+    suspend fun insertAllPokemonsToDatabase(list: List<Pokemon>)
+
+    /**
+     * Clear database
+     */
+    suspend fun deleteAllPokemonsFromDatabase()
 }
 
 class PokeRepositoryImpl @Inject constructor(
     private val api: PokeApi,
     private val dao: AppDao
 ) : PokeRepository {
+
     override suspend fun getPokemons(offset: Int, limit: Int): Resource<List<Pokemon>> {
         return try {
             val data = api.getPokemons(offset = offset, limit = limit)
             val newList = mutableListOf<Pokemon>()
-            data.list.forEach {
-                println("!!! CALL !!!")
-                coroutineScope {
-                    val pokemon = api.getPokemon(it.name)
-                    newList.add(pokemon)
+            coroutineScope {
+                data.list.forEach {
+                    launch {
+                        val pokemon = api.getPokemon(it.name)
+                        newList.add(pokemon)
+                    }
                 }
             }
-            Resource.Success(data = newList)
+            Resource.Success(data = newList.sortedBy { it.id })
         } catch (e: Exception) {
-            Resource.Error(message = e.message ?: "An unknown error occurred.")
+            Resource.Error(message = e.message ?: "An unknown error occurred")
         }
     }
 
-    override suspend fun getPokemonsFromDao(): List<Pokemon> = dao.getAll()
+    override suspend fun getPokemonsFromDatabase(): List<Pokemon> = dao.getAll()
 
-    override suspend fun insertAllPokemons(list: List<Pokemon>) {
+    override suspend fun insertAllPokemonsToDatabase(list: List<Pokemon>) {
         dao.insertAll(list)
     }
 
-    override suspend fun deleteAllPokemons() {
+    override suspend fun deleteAllPokemonsFromDatabase() {
         dao.deleteAll()
     }
 }

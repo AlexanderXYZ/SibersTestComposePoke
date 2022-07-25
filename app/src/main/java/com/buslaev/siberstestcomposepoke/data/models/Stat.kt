@@ -10,7 +10,6 @@ data class Stat(
     val statNamed: StatNamed
 )
 
-
 data class StatNamed(
     @field:Json(name = "name")
     val name: String
