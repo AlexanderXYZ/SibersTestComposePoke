@@ -8,6 +8,11 @@ import retrofit2.http.Query
 
 interface PokeApi {
 
+    companion object {
+        const val POKEMON_OFFSET = 30
+        const val LIMIT = 30
+    }
+
     @GET("pokemon")
     suspend fun getPokemons(
         @Query("offset") offset: Int,

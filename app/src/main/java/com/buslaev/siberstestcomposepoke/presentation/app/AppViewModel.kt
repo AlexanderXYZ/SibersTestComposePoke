@@ -7,9 +7,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.buslaev.siberstestcomposepoke.common.EventHandler
 import com.buslaev.siberstestcomposepoke.data.models.Pokemon
+import com.buslaev.siberstestcomposepoke.data.remote.PokeApi.Companion.LIMIT
+import com.buslaev.siberstestcomposepoke.data.remote.PokeApi.Companion.POKEMON_OFFSET
 import com.buslaev.siberstestcomposepoke.domain.repository.PokeRepository
+import com.buslaev.siberstestcomposepoke.domain.util.PokemonUtil
 import com.buslaev.siberstestcomposepoke.domain.util.Resource
-import com.buslaev.siberstestcomposepoke.presentation.app.AppViewModel.Companion.POKEMONS_OFFSET
 import com.buslaev.siberstestcomposepoke.presentation.main.MainEvent
 import com.buslaev.siberstestcomposepoke.presentation.main.MainState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -23,20 +25,22 @@ sealed class Stats(val name: String) {
     object Hp : Stats("hp")
 }
 
+data class PokemonStatUi(
+    val title: String,
+    val value: Int,
+    val fontSize: Int
+)
+
 @HiltViewModel
 class AppViewModel @Inject constructor(
-    private val repository: PokeRepository
+    private val repository: PokeRepository,
+    private val pokemonUtil: PokemonUtil
 ) : ViewModel(), EventHandler<MainEvent> {
 
     var uiState by mutableStateOf(MainState())
     private var currentPage = 0
     private var oldList: List<Pokemon> = emptyList()
     private var onlineFirstLaunch: Boolean = true
-
-    companion object {
-        const val POKEMONS_OFFSET = 30
-        const val LIMIT = 30
-    }
 
     override fun obtainEvent(event: MainEvent) {
         when (event) {
@@ -64,17 +68,17 @@ class AppViewModel @Inject constructor(
             }
             loadPokemonsFromServer()
         } else {
-            loadPokemonsFromCache()
+            loadPokemonListFromCache()
         }
     }
 
     private fun refreshPokemons(isOnline: Boolean) {
         if (!isOnline) {
-            loadPokemonsFromCache()
+            loadPokemonListFromCache()
             return
         }
         viewModelScope.launch(Dispatchers.IO) {
-            val data = repository.getPokemons(offset = 0, limit = POKEMONS_OFFSET * currentPage)
+            val data = repository.getPokemons(offset = 0, limit = POKEMON_OFFSET * currentPage)
             when (data) {
                 is Resource.Loading -> {
                     uiState = uiState.copy(
@@ -103,7 +107,7 @@ class AppViewModel @Inject constructor(
     }
 
     private fun loadPokemonsFromServer() = viewModelScope.launch(Dispatchers.IO) {
-        val data = repository.getPokemons(POKEMONS_OFFSET * currentPage, LIMIT)
+        val data = repository.getPokemons(POKEMON_OFFSET * currentPage, LIMIT)
         when (data) {
             is Resource.Loading -> {
                 uiState = uiState.copy(
@@ -138,7 +142,7 @@ class AppViewModel @Inject constructor(
         repository.insertAllPokemonsToDatabase(list)
     }
 
-    private fun loadPokemonsFromCache() = viewModelScope.launch(Dispatchers.IO) {
+    private fun loadPokemonListFromCache() = viewModelScope.launch(Dispatchers.IO) {
         val list = repository.getPokemonsFromDatabase()
         oldList = list
         uiState = uiState.copy(
@@ -181,36 +185,17 @@ class AppViewModel @Inject constructor(
         if (uiState.defenseChecked) listOfStats.add(Stats.Defense)
         if (uiState.hpChecked) listOfStats.add(Stats.Hp)
 
-        val newPokemonList = if (listOfStats.isEmpty()) oldList else getSortedList(listOfStats)
+        val newPokemonList = if (listOfStats.isEmpty()) {
+            oldList
+        } else {
+            pokemonUtil.getSortedList(
+                pokemonList = uiState.pokemonList,
+                listOfStats = listOfStats
+            )
+        }
         uiState = uiState.copy(
             pokemonList = newPokemonList,
             listOfSelectedStats = listOfStats
         )
     }
-
-    private fun getSortedList(listOfStats: List<Stats>): List<Pokemon> {
-        return uiState.pokemonList.map { pokemon ->
-            pokemon.getMaxStatValueByStats(listOfStats)
-        }.run {
-            this.sortedBy { pair ->
-                pair.second
-            }.map { sortedPair ->
-                sortedPair.getPokemon()
-            }.reversed()
-        }
-    }
-
-
-    private fun Pokemon.getMaxStatValueByStats(list: List<Stats>): Pair<Pokemon, Int> {
-        var maxValue = 0
-        list.forEach { stat ->
-            val value = this.stats.find { it.statNamed.name == stat.name }?.value
-            value?.let {
-                if (value > maxValue) maxValue = value
-            }
-        }
-        return Pair(this, maxValue)
-    }
-
-    private fun Pair<Pokemon, Int>.getPokemon(): Pokemon = this.first
 }

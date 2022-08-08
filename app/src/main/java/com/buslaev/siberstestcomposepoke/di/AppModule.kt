@@ -7,6 +7,7 @@ import com.buslaev.siberstestcomposepoke.data.locale.database.AppDatabase
 import com.buslaev.siberstestcomposepoke.data.remote.PokeApi
 import com.buslaev.siberstestcomposepoke.domain.repository.PokeRepository
 import com.buslaev.siberstestcomposepoke.domain.repository.PokeRepositoryImpl
+import com.buslaev.siberstestcomposepoke.domain.util.PokemonUtil
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -54,4 +55,8 @@ object AppModule {
     @Provides
     @Singleton
     fun provideDao(dataBase: AppDatabase): AppDao = dataBase.appDao()
+
+    @Provides
+    @Singleton
+    fun providePokemonUtil(): PokemonUtil = PokemonUtil()
 }
